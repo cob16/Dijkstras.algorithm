@@ -103,16 +103,17 @@ public class cob16Snapper implements ISnapper {
             public void run()
             {
                 System.out.println("map tread started");
+                System.out.println("building map");
 
-                Point tempTest = pixels.poll().getPosition();
+                Point tempTest = pixels.peek().getPosition();
 
                 printEdges(tempTest, edges);
                 //System.out.println(edges[0].get_nocheck(0, 0)); //do stuff
 
                 while (!pixels.isEmpty()) {
-                    PixelNodes current = pixels.poll();
-                    examineEdges(current);
+                    examineEdges(pixels.poll());
                 }
+                System.out.println("map done");
             }
         });
         map.start();
@@ -128,26 +129,52 @@ public class cob16Snapper implements ISnapper {
     private void examineEdges(PixelNodes current)
     {
         Point cp = current.getPosition();
+        visited_nodes[cp.x][cp.y] = true;
         for (Direction dir : Direction.values()) {
             Point neighbor = pointTranslator(cp, dir);
-            if (!visited_nodes[neighbor.x][neighbor.y]) //has node been visited
-            {
-                double newWeight = pointEdge(cp, dir) + current.getTotalWeight();
-                PixelNodes neighborOb = findObject(neighbor);
-                double oldWeight = neighborOb.getTotalWeight();
-                System.out.println("old weight: " + oldWeight + " newWeight " + newWeight);
-                if (neighborOb == null) {
-                    pixels.add(new PixelNodes(neighbor, newWeight));
-                    mapToSource[neighbor.x][neighbor.y] = cp;
-                } else if (newWeight < oldWeight) {
-                    pixels.remove(neighborOb);
-                    neighborOb.setTotalWeight(newWeight);
-                    mapToSource[neighbor.x][neighbor.y] = cp;
-                    pixels.add(neighborOb);
+            if (neighbor != null) { //ignores out of bounds positions
+                if (!nodeVisitedCheck(neighbor.x, neighbor.y)) //has node been visited
+                {
+                    double newWeight = pointEdge(cp, dir) + current.getTotalWeight();
+                    PixelNodes neighborOb = findObject(neighbor);
+                    //double oldWeight = neighborOb.getTotalWeight();
+                    //System.out.println("old weight: " + oldWeight + " newWeight " + newWeight);
+                    if (neighborOb == null) {
+                        pixels.add(new PixelNodes(neighbor, newWeight));
+                        setMapToSource(neighbor.x, neighbor.y, cp);
+                        //System.out.println("added "+neighbor.getLocation().toString());
+                    } else if (newWeight < neighborOb.getTotalWeight()) {
+                        pixels.remove(neighborOb);
+                        neighborOb.setTotalWeight(newWeight);
+                        setMapToSource(neighbor.x, neighbor.y, cp);
+                        pixels.add(neighborOb);
+                        //System.out.println("added " + neighborOb.getPosition().toString());
+                    }
                 }
             }
         }
-        visited_nodes[cp.x][cp.y] = true;
+    }
+
+    private void setMapToSource(int x, int y, Point p)
+    {
+        if (mapToSource.length <= x || mapToSource.length <= y || y < 0 || x < 0) {
+            //System.out.println("ignoring: ["+x+","+y+"]");
+        } else {
+            mapToSource[x][y] = p;
+        }
+    }
+
+    /**
+     * Gets value of indicated visited_nodes element, returns false if out of bounds.
+     * @param x first dimension
+     * @param y second dimension
+     * @return current value, false if out of bounds
+     */
+    private boolean nodeVisitedCheck(int x, int y)
+    {
+        if (visited_nodes.length < x || visited_nodes.length < y || y < 0 || x < 0) {
+            return false;
+        } else return visited_nodes[x][y];
     }
 
     /**
@@ -176,42 +203,47 @@ public class cob16Snapper implements ISnapper {
      */
     Point pointTranslator(Point origin, Direction direction)
     {
+        Point temp = new Point(origin); //this is to avoid modification
         switch (direction) {
             case NORTH:
-                origin.translate(0, 1);
-                return origin;
-            //return makes break unnecessary
+                temp.translate(0, 1);
+                break;
             case NORTHEAST:
-                origin.translate(1, 1);
-                return origin;
-            //return makes break unnecessary;
+                temp.translate(1, 1);
+                break;
+
             case EAST:
-                origin.translate(1, 0);
-                return origin;
-            //return makes break unnecessary;
+                temp.translate(1, 0);
+                break;
+
             case SOUTHEAST:
-                origin.translate(1, -1);
-                return origin;
-            //return makes break unnecessary;
+                temp.translate(1, -1);
+                break;
+
             case SOUTH:
-                origin.translate(0, -1);
-                return origin;
-            //return makes break unnecessary;
+                temp.translate(0, -1);
+                break;
+
             case SOUTHWEST:
-                origin.translate(-1, -1);
-                return origin;
-            //return makes break unnecessary;
+                temp.translate(-1, -1);
+                break;
+
             case WEST:
-                origin.translate(-1, 0);
-                return origin;
-            //return makes break unnecessary;
+                temp.translate(-1, 0);
+                break;
+
             case NORTHWEST:
-                origin.translate(-1, 1);
-                return origin;
-            //return makes break unnecessary;
+                temp.translate(-1, 1);
+                break;
+
             default:
                 return null;
+            //return makes break unnecessary;
         }
+        if (mapToSource.length <= temp.x || mapToSource[0].length <= temp.y || temp.y < 0 || temp.x < 0) {
+            //System.out.println("out of bounds point found: "+temp.toString());
+            return null;
+        } else return temp;
     }
 
     /**
@@ -261,9 +293,16 @@ public class cob16Snapper implements ISnapper {
     }
 
     @Override
-    public LinkedList<Point> getPath(int i, int i1)
+    public LinkedList<Point> getPath(int x, int y)
     {
-        return null;
+        Point current = new Point(x, y);
+
+        LinkedList<Point> r = new LinkedList<>();
+        while (!current.equals(source)) {  //untill we reach source
+            r.add(current);
+            current = mapToSource[current.x][current.y];
+        }
+        return r;
     }
 
     /**
