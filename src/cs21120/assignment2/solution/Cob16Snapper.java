@@ -19,9 +19,10 @@ import java.util.concurrent.PriorityBlockingQueue;
  * @version 1
  * @see cs21120.assignment2.ISnapper
  */
-public class cob16Snapper implements ISnapper {
+public class Cob16Snapper implements ISnapper {
 
     PriorityBlockingQueue<PixelNodes> pixels;
+    Thread map;
     private FloatImage[] edges;           //weights of node paths
     private boolean[][] visited_nodes;
     private Point[][] mapToSource;        //shortest path back to source
@@ -37,7 +38,7 @@ public class cob16Snapper implements ISnapper {
     {
         pixels = new PriorityBlockingQueue<>();
 
-        this.edges = edges.clone();
+        this.edges = edges;
         this.source = new Point(source);
         visited_nodes = new boolean[x][y];
         mapToSource = new Point[x][y];
@@ -64,7 +65,7 @@ public class cob16Snapper implements ISnapper {
 
         setVars(seed, edges[0].getWidth(), edges[0].getHeight(), edges);
 
-        printEdges(seed, edges);
+        //printEdges(seed, edges);
 
         map();
     }
@@ -80,12 +81,10 @@ public class cob16Snapper implements ISnapper {
         int y = seed.y;
 
         System.out.println(" - printing edges at at: " + source.toString());
-
         System.out.println("NORTH WEST: " + edges[0].get(x, y));
         System.out.println("     NORTH: " + edges[1].get(x, y));
         System.out.println("NORTH EAST: " + edges[2].get(x, y));
         System.out.println("      EAST: " + edges[3].get(x, y));
-
         System.out.println("SOUTH EAST: " + edges[0].get(x + 1, y - 1));
         System.out.println("     SOUTH: " + edges[1].get(x, y - 1));
         System.out.println("SOUTH WEST: " + edges[2].get(x - 1, y - 1));
@@ -99,21 +98,24 @@ public class cob16Snapper implements ISnapper {
      */
     private void map()
     {
-        Thread map = new Thread(new Runnable() {
+
+        if (map != null) {
+            map.stop();
+        }
+
+        map = new Thread(new Runnable() {
             public void run()
             {
                 System.out.println("map tread started");
-                System.out.println("building map");
 
                 Point tempTest = pixels.peek().getPosition();
 
-                printEdges(tempTest, edges);
-                //System.out.println(edges[0].get_nocheck(0, 0)); //do stuff
-
                 while (!pixels.isEmpty()) {
+                    System.out.println(pixels.size() + " ");
                     examineEdges(pixels.poll());
                 }
                 System.out.println("map done");
+
             }
         });
         map.start();
@@ -297,7 +299,7 @@ public class cob16Snapper implements ISnapper {
     {
         Point current = new Point(x, y);
 
-        LinkedList<Point> r = new LinkedList<>();
+        LinkedList<Point> r = new LinkedList<Point>();
         while (!current.equals(source)) {  //untill we reach source
             r.add(current);
             current = mapToSource[current.x][current.y];
